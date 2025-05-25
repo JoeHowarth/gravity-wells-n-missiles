@@ -87,7 +87,7 @@ export class Missile extends Projectile {
     protected currentHomingResult: HomingResult | null = null;
     
     constructor(position: Vector2D, velocity: Vector2D, owner: number) {
-        super(position, velocity, 3, 15, owner); // Reduced hitbox from 4 to 3
+        super(position, velocity, 2, 15, owner); 
         this.maxTrailLength = 30;
     }
     
@@ -219,10 +219,23 @@ export class Missile extends Projectile {
             ctx.setLineDash([]);
         }
         
-        // Sampled directions (small gray lines) - only for single phase
+        // Sampled directions with color coding for thrust type
         for (const dir of debugInfo.sampledDirections) {
             const sampleEnd = this.position.add(dir.multiply(20));
-            ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
+            
+            // Color code based on thrust direction relative to velocity
+            const velocityDot = dir.dot(this.velocity.normalize());
+            let strokeStyle: string;
+            
+            if (velocityDot > 0.7) {
+                strokeStyle = 'rgba(0, 255, 0, 0.4)'; // Forward thrust (green)
+            } else if (velocityDot < -0.7) {
+                strokeStyle = 'rgba(255, 0, 0, 0.4)'; // Reverse thrust (red)
+            } else {
+                strokeStyle = 'rgba(128, 128, 128, 0.3)'; // Side thrust (gray)
+            }
+            
+            ctx.strokeStyle = strokeStyle;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(this.position.x, this.position.y);

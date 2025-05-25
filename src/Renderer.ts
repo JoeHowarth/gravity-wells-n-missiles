@@ -114,62 +114,72 @@ export class Renderer {
         
         // Background
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(x - 5, y - 20, 200, 110);
+        this.ctx.fillRect(x - 5, y - 20, 200, 125);
         
         // Title
         this.ctx.fillStyle = 'white';
         this.ctx.font = '12px Arial';
-        this.ctx.fillText('Missile Debug Info:', x, y - 5);
+        this.ctx.fillText('Bidirectional Missile Debug:', x, y - 5);
         
         // Legend items
         this.ctx.font = '10px Arial';
         
-        // Gray lines
-        this.ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
+        // Forward thrust (green)
+        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         this.ctx.moveTo(x, y + 10);
         this.ctx.lineTo(x + 20, y + 10);
         this.ctx.stroke();
         this.ctx.fillStyle = 'white';
-        this.ctx.fillText('Sampled directions', x + 25, y + 13);
+        this.ctx.fillText('Forward thrust', x + 25, y + 13);
         
-        // Green line
-        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-        this.ctx.lineWidth = 2;
+        // Reverse thrust (red)
+        this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.4)';
+        this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         this.ctx.moveTo(x, y + 25);
         this.ctx.lineTo(x + 20, y + 25);
         this.ctx.stroke();
-        this.ctx.fillText('Current velocity', x + 25, y + 28);
+        this.ctx.fillText('Reverse thrust', x + 25, y + 28);
         
-        // Blue line
-        this.ctx.strokeStyle = 'rgba(0, 128, 255, 0.8)';
+        // Side thrust (gray)
+        this.ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
+        this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         this.ctx.moveTo(x, y + 40);
         this.ctx.lineTo(x + 20, y + 40);
         this.ctx.stroke();
-        this.ctx.fillText('Best direction', x + 25, y + 43);
+        this.ctx.fillText('Side thrust', x + 25, y + 43);
         
-        // Yellow line
-        this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
-        this.ctx.lineWidth = 3;
+        // Current velocity (thick green)
+        this.ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+        this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         this.ctx.moveTo(x, y + 55);
         this.ctx.lineTo(x + 20, y + 55);
         this.ctx.stroke();
-        this.ctx.fillText('Applied thrust', x + 25, y + 58);
+        this.ctx.fillText('Current velocity', x + 25, y + 58);
         
-        // Dashed red line
-        this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
-        this.ctx.lineWidth = 1;
-        this.ctx.setLineDash([5, 5]);
+        // Applied thrust (yellow)
+        this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+        this.ctx.lineWidth = 3;
         this.ctx.beginPath();
         this.ctx.moveTo(x, y + 70);
         this.ctx.lineTo(x + 20, y + 70);
         this.ctx.stroke();
+        this.ctx.fillText('Applied thrust', x + 25, y + 73);
+        
+        // Line to target (dashed red)
+        this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, y + 85);
+        this.ctx.lineTo(x + 20, y + 85);
+        this.ctx.stroke();
         this.ctx.setLineDash([]);
-        this.ctx.fillText('Line to target', x + 25, y + 73);
+        this.ctx.fillText('Line to target', x + 25, y + 88);
         
         this.ctx.restore();
     }

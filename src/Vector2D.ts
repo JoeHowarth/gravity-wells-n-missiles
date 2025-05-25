@@ -33,6 +33,10 @@ export class Vector2D {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    dot(v: Vector2D): number {
+        return this.x * v.x + this.y * v.y;
+    }
+
     angle(): number {
         return Math.atan2(this.y, this.x);
     }

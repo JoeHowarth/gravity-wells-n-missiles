@@ -207,7 +207,7 @@ export class Game {
         const minSpacing = 10; // Reduced spacing to fit more asteroids
         const maxAttempts = 50;
         
-        for (let i = 0; i < 20; i++) { // Increased from 30
+        for (let i = 0; i < 30; i++) { // Increased from 30
             let placed = false;
             let attempts = 0;
             

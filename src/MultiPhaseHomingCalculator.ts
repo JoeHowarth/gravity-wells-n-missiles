@@ -14,12 +14,17 @@ import {
  * 2. For each phase combination, evaluate the complete trajectory
  * 3. Select the phase sequence that gets closest to target
  * 4. Return the first phase direction for immediate execution
+ * 
+ * Features bidirectional thrust capability:
+ * - Can thrust forward, sideways, or backward relative to current velocity
+ * - Enables slowing down, sharp turns, and gravity-assisted maneuvers
  */
 export class MultiPhaseHomingCalculator extends HomingCalculator {
-    private readonly phase1Samples = 8;
-    private readonly phase2Samples = 4;
+    private readonly phase1Samples = 12;  // Increased for better coverage
+    private readonly phase2Samples = 6;   // Increased for finer control
     private readonly phase3Samples = 4;
-    private readonly refinementArc = Math.PI / 6; // 30 degrees
+    private readonly refinementArc = Math.PI / 4; // 45 degrees for broader search
+    private readonly fullThrustRange = Math.PI * 1.5; // 270 degrees - includes reverse thrust
     
     calculateOptimalThrust(context: HomingContext): HomingResult {
         const { timing, target, physics, currentPosition, currentVelocity, asteroids } = context;
@@ -64,9 +69,9 @@ export class MultiPhaseHomingCalculator extends HomingCalculator {
         const currentAngle = this.getCurrentAngle(currentVelocity);
         let evaluationCount = 0;
         
-        // Coarse sampling
-        for (let i = 0; i < 12; i++) {
-            const angleOffset = (i / 11 - 0.5) * 2 * this.maxTurnAngle;
+        // Bidirectional sampling - includes forward, side, and reverse thrust
+        for (let i = 0; i < 16; i++) {
+            const angleOffset = (i / 15 - 0.5) * this.fullThrustRange;
             const angle = currentAngle + angleOffset;
             const direction = new Vector2D(Math.cos(angle), Math.sin(angle));
             
@@ -145,13 +150,13 @@ export class MultiPhaseHomingCalculator extends HomingCalculator {
         const currentAngle = this.getCurrentAngle(currentVelocity);
         let evaluationCount = 0;
         
-        // Phase 1 sampling
+        // Phase 1 sampling - bidirectional coverage
         for (let i = 0; i < this.phase1Samples; i++) {
-            const phase1Offset = (i / (this.phase1Samples - 1) - 0.5) * 2 * this.maxTurnAngle;
+            const phase1Offset = (i / (this.phase1Samples - 1) - 0.5) * this.fullThrustRange;
             const phase1Angle = currentAngle + phase1Offset;
             const phase1Dir = new Vector2D(Math.cos(phase1Angle), Math.sin(phase1Angle));
             
-            // Phase 2 sampling
+            // Phase 2 sampling - refined around phase 1
             for (let j = 0; j < this.phase2Samples; j++) {
                 const phase2Offset = (j / (this.phase2Samples - 1) - 0.5) * 2 * this.refinementArc;
                 const phase2Angle = phase1Angle + phase2Offset;
