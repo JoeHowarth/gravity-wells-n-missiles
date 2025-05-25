@@ -3,9 +3,15 @@ import { Asteroid } from './Asteroid';
 import { Projectile } from './Projectile';
 import { Ship } from './Ship';
 import { Vector2D } from './Vector2D';
+import { AudioManager } from './AudioManager';
 
 export class Physics {
     private G: number = 6000;
+    private audioManager: AudioManager | null = null;
+    
+    setAudioManager(audioManager: AudioManager): void {
+        this.audioManager = audioManager;
+    }
 
     applyGravity(entities: Entity[], asteroids: Asteroid[], deltaTime: number): void {
         for (const entity of entities) {
@@ -55,6 +61,15 @@ export class Physics {
             }
             
             console.log(`Collision: ${entityA.constructor.name} vs ${entityB.constructor.name}`);
+            
+            // Play appropriate sound effect
+            if (this.audioManager) {
+                if (other instanceof Ship) {
+                    this.audioManager.playSound('explosion');
+                } else if (other instanceof Asteroid) {
+                    this.audioManager.playSound('collision');
+                }
+            }
             
             if (entityA instanceof Projectile) entityA.destroy();
             if (entityB instanceof Projectile) entityB.destroy();

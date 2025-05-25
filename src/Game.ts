@@ -5,12 +5,14 @@ import { Physics } from './Physics';
 import { Renderer } from './Renderer';
 import { Vector2D } from './Vector2D';
 import { Entity } from './Entity';
+import { AudioManager } from './AudioManager';
 
 export class Game {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
     private renderer: Renderer;
     private physics: Physics;
+    private audioManager: AudioManager;
     
     private ships: Ship[] = [];
     private asteroids: Asteroid[] = [];
@@ -32,9 +34,12 @@ export class Game {
         this.ctx = ctx;
         this.renderer = new Renderer(ctx, canvas.width, canvas.height);
         this.physics = new Physics();
+        this.audioManager = new AudioManager();
+        this.physics.setAudioManager(this.audioManager);
         
         this.setupEventListeners();
         this.setupKeyboardListeners();
+        this.setupAudioControls();
         this.reset();
     }
     
@@ -75,6 +80,21 @@ export class Game {
         });
     }
     
+    private setupAudioControls(): void {
+        const muteBtn = document.getElementById('mute-btn') as HTMLButtonElement;
+        const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
+        
+        muteBtn.addEventListener('click', () => {
+            this.audioManager.toggleMute();
+            muteBtn.textContent = this.audioManager.isMusicMuted() ? '🔇 Unmute' : '🔊 Mute';
+        });
+        
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = parseInt((e.target as HTMLInputElement).value) / 100;
+            this.audioManager.setVolume(volume);
+        });
+    }
+    
     private setupKeyboardListeners(): void {
         window.addEventListener('keydown', (e) => {
             if (this.gameOver) return;
@@ -85,9 +105,11 @@ export class Game {
             switch (e.key.toLowerCase()) {
                 case 'w':
                     this.currentPower = Math.min(this.currentPower + 20, 500);
+                    this.audioManager.playSound('powerup');
                     break;
                 case 'a':
                     this.currentPower = Math.max(this.currentPower - 20, 0);
+                    this.audioManager.playSound('powerdown');
                     break;
                 case '1':
                     if (ship && !ship.isDestroyed) {
@@ -148,6 +170,7 @@ export class Game {
         let projectile: Projectile;
         if (ship.currentWeapon === 'bullet') {
             projectile = new Bullet(startPos, velocity, player);
+            this.audioManager.playSound('fire');
         } else if (ship.currentWeapon === 'missile') {
             projectile = new Missile(startPos, velocity, player);
             // Set the enemy ship as target and physics context
@@ -156,14 +179,18 @@ export class Game {
                 (projectile as Missile).setTarget(targetShip);
             }
             (projectile as Missile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as Missile).setAudioManager(this.audioManager);
+            this.audioManager.playSound('missile');
         } else {
             projectile = new DelayedMissile(startPos, velocity, player);
+            this.audioManager.playSound('missile');
             // Set the enemy ship as target and physics context
             const targetShip = this.ships[player === 1 ? 1 : 0];
             if (targetShip && !targetShip.isDestroyed) {
                 (projectile as DelayedMissile).setTarget(targetShip);
             }
             (projectile as DelayedMissile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as DelayedMissile).setAudioManager(this.audioManager);
         }
         
         this.projectiles.push(projectile);
@@ -199,6 +226,9 @@ export class Game {
         this.gameOver = false;
         this.winner = 0;
         
+        // Start background music
+        this.audioManager.startMusic();
+        
         const ship1 = new Ship(new Vector2D(50, this.canvas.height / 2), 1);
         const ship2 = new Ship(new Vector2D(this.canvas.width - 50, this.canvas.height / 2), 2);
         this.ships.push(ship1, ship2);
@@ -207,7 +237,7 @@ export class Game {
         const minSpacing = 10; // Reduced spacing to fit more asteroids
         const maxAttempts = 50;
         
-        for (let i = 0; i < 30; i++) { // Increased from 30
+        for (let i = 0; i < 40; i++) { // Increased from 30
             let placed = false;
             let attempts = 0;
             
@@ -352,6 +382,9 @@ export class Game {
     private endGame(winner: number): void {
         this.gameOver = true;
         this.winner = winner;
+        
+        // Stop music when game ends
+        this.audioManager.stopMusic();
         
         const overlay = document.getElementById('victory-overlay')!;
         const message = document.getElementById('victory-message')!;

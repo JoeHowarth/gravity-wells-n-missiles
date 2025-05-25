@@ -3,6 +3,7 @@ import { Vector2D } from './Vector2D';
 import { Ship } from './Ship';
 import { Physics } from './Physics';
 import { Asteroid } from './Asteroid';
+import { AudioManager } from './AudioManager';
 import { 
     HomingCalculator, 
     HomingContext, 
@@ -79,6 +80,8 @@ export class Missile extends Projectile {
     targetShip: Ship | null = null;
     physics: Physics | null = null;
     asteroids: Asteroid[] = [];
+    audioManager: AudioManager | null = null;
+    private thrustSoundPlaying: boolean = false;
     
     // Homing system
     protected homingCalculator: HomingCalculator = new MultiPhaseHomingCalculator();
@@ -98,6 +101,10 @@ export class Missile extends Projectile {
     setPhysicsContext(physics: Physics, asteroids: Asteroid[]): void {
         this.physics = physics;
         this.asteroids = asteroids;
+    }
+    
+    setAudioManager(audioManager: AudioManager): void {
+        this.audioManager = audioManager;
     }
     
     /**
@@ -164,7 +171,15 @@ export class Missile extends Projectile {
             if (thrustDirection) {
                 const thrust = thrustDirection.multiply(this.thrustForce * deltaTime / 1000);
                 this.velocity = this.velocity.add(thrust);
+                
+                // Play thrust sound
+                if (this.audioManager && !this.thrustSoundPlaying) {
+                    this.audioManager.playSound('thrust');
+                    this.thrustSoundPlaying = true;
+                }
             }
+        } else {
+            this.thrustSoundPlaying = false;
         }
     }
 
