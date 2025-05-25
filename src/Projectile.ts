@@ -3,6 +3,15 @@ import { Vector2D } from './Vector2D';
 import { Ship } from './Ship';
 import { Physics } from './Physics';
 import { Asteroid } from './Asteroid';
+import { 
+    HomingCalculator, 
+    HomingContext, 
+    HomingResult,
+    StandardMissileTiming, 
+    DelayedMissileTiming, 
+    MissileTiming 
+} from './HomingSystem';
+import { MultiPhaseHomingCalculator } from './MultiPhaseHomingCalculator';
 
 export abstract class Projectile extends Entity {
     owner: number;
@@ -67,24 +76,15 @@ export class Missile extends Projectile {
     thrustTime: number = 2000;
     timeAlive: number = 0;
     thrustForce: number = 100;  // Reduced from 200 (50% less thrust)
-    homingStrength: number = 0.15;  // Reduced from 0.3 (less responsive turning)
     targetShip: Ship | null = null;
     physics: Physics | null = null;
     asteroids: Asteroid[] = [];
     
-    // Homing algorithm state
-    optimalThrustDirection: Vector2D | null = null;
-    plannedPhases: Array<{ direction: Vector2D | null; duration: number }> = [];
-    lastHomingCalculation: number = 0;
-    homingCalculationInterval: number = 100; // Recalculate every 100ms
-    
-    // Debug info
-    debugThrustDirection: Vector2D | null = null;
-    debugTargetDirection: Vector2D | null = null;
-    debugHomingActive: boolean = false;
-    debugSampledDirections: Vector2D[] = [];
-    debugBestDirection: Vector2D | null = null;
-    debugPlannedPhases: Array<{ direction: Vector2D | null; duration: number }> = [];
+    // Homing system
+    protected homingCalculator: HomingCalculator = new MultiPhaseHomingCalculator();
+    protected lastHomingCalculation: number = 0;
+    protected homingCalculationInterval: number = 100; // Recalculate every 100ms
+    protected currentHomingResult: HomingResult | null = null;
     
     constructor(position: Vector2D, velocity: Vector2D, owner: number) {
         super(position, velocity, 3, 15, owner); // Reduced hitbox from 4 to 3
@@ -100,230 +100,69 @@ export class Missile extends Projectile {
         this.asteroids = asteroids;
     }
     
-    calculateOptimalThrustDirection(): Vector2D | null {
-        if (!this.targetShip || this.targetShip.isDestroyed || !this.physics) {
-            return this.velocity.normalize();
-        }
-        
-        const targetPos = this.targetShip.position;
-        const remainingThrustTime = Math.max(0, this.thrustTime - this.timeAlive);
-        
-        if (remainingThrustTime <= 0) {
-            return null;
-        }
-        
-        // Clear debug info
-        this.debugSampledDirections = [];
-        this.debugBestDirection = null;
-        this.debugPlannedPhases = [];
-        
-        // Determine number of phases
-        let numPhases = 3;
-        if (remainingThrustTime < 600) numPhases = 2;
-        if (remainingThrustTime < 300) numPhases = 1;
-        
-        if (numPhases === 1) {
-            return this.calculateSinglePhaseThrust(remainingThrustTime);
-        }
-        
-        // Multi-phase planning
-        const phaseDuration = remainingThrustTime / numPhases;
-        let bestPhases: Array<{ direction: Vector2D | null; duration: number }> = [];
-        let bestDistance = Infinity;
-        
-        // Evaluate baseline (no thrust)
-        const baselineResult = this.physics.evaluateMultiPhaseTrajectory(
-            this.position,
-            this.velocity,
-            [{ direction: null, duration: remainingThrustTime }],
-            this.thrustForce,
-            targetPos,
-            this.asteroids
-        );
-        bestDistance = baselineResult.minDistance;
-        
-        // Multi-phase search
-        const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
-        const phase1Samples = 8;
-        const maxTurnAngle = Math.PI / 3;
-        
-        for (let i = 0; i < phase1Samples; i++) {
-            const phase1Offset = (i / (phase1Samples - 1) - 0.5) * 2 * maxTurnAngle;
-            const phase1Angle = currentAngle + phase1Offset;
-            const phase1Dir = new Vector2D(Math.cos(phase1Angle), Math.sin(phase1Angle));
-            
-            const phase2Samples = 4;
-            const phase2Arc = Math.PI / 6;
-            
-            for (let j = 0; j < phase2Samples; j++) {
-                const phase2Offset = (j / (phase2Samples - 1) - 0.5) * 2 * phase2Arc;
-                const phase2Angle = phase1Angle + phase2Offset;
-                const phase2Dir = new Vector2D(Math.cos(phase2Angle), Math.sin(phase2Angle));
-                
-                if (numPhases === 2) {
-                    const phases = [
-                        { direction: phase1Dir, duration: phaseDuration },
-                        { direction: phase2Dir, duration: phaseDuration }
-                    ];
-                    
-                    const result = this.physics.evaluateMultiPhaseTrajectory(
-                        this.position,
-                        this.velocity,
-                        phases,
-                        this.thrustForce,
-                        targetPos,
-                        this.asteroids
-                    );
-                    
-                    if (result.minDistance < bestDistance) {
-                        bestDistance = result.minDistance;
-                        bestPhases = phases;
-                    }
-                } else {
-                    const phase3Samples = 4;
-                    const phase3Arc = Math.PI / 6;
-                    
-                    for (let k = 0; k < phase3Samples; k++) {
-                        const phase3Offset = (k / (phase3Samples - 1) - 0.5) * 2 * phase3Arc;
-                        const phase3Angle = phase2Angle + phase3Offset;
-                        const phase3Dir = new Vector2D(Math.cos(phase3Angle), Math.sin(phase3Angle));
-                        
-                        const phases = [
-                            { direction: phase1Dir, duration: phaseDuration },
-                            { direction: phase2Dir, duration: phaseDuration },
-                            { direction: phase3Dir, duration: phaseDuration }
-                        ];
-                        
-                        const result = this.physics.evaluateMultiPhaseTrajectory(
-                            this.position,
-                            this.velocity,
-                            phases,
-                            this.thrustForce,
-                            targetPos,
-                            this.asteroids
-                        );
-                        
-                        if (result.minDistance < bestDistance) {
-                            bestDistance = result.minDistance;
-                            bestPhases = phases;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Store for debug
-        this.debugPlannedPhases = bestPhases;
-        this.plannedPhases = bestPhases;
-        
-        if (bestDistance >= baselineResult.minDistance * 0.95 || bestPhases.length === 0) {
-            return null;
-        }
-        
-        return bestPhases[0].direction;
+    /**
+     * Create timing context for this missile type
+     */
+    protected createTiming(): MissileTiming {
+        return new StandardMissileTiming(this.thrustTime, this.timeAlive, this.thrustForce);
     }
     
-    calculateSinglePhaseThrust(remainingThrustTime: number): Vector2D | null {
-        if (!this.physics || !this.targetShip) return null;
-        
-        const targetPos = this.targetShip.position;
-        
-        const baselineResult = this.physics.evaluateTrajectory(
-            this.position,
-            this.velocity,
-            null,
-            0,
-            0,
-            targetPos,
-            this.asteroids
-        );
-        
-        let bestDirection = this.velocity.normalize();
-        let bestDistance = baselineResult.minDistance;
-        
-        const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
-        const maxTurnAngle = Math.PI / 3;
-        const numSamples = 12;
-        
-        for (let i = 0; i < numSamples; i++) {
-            const angleOffset = (i / (numSamples - 1) - 0.5) * 2 * maxTurnAngle;
-            const angle = currentAngle + angleOffset;
-            const direction = new Vector2D(Math.cos(angle), Math.sin(angle));
-            
-            this.debugSampledDirections.push(direction);
-            
-            const result = this.physics.evaluateTrajectory(
-                this.position,
-                this.velocity,
-                direction,
-                this.thrustForce,
-                remainingThrustTime,
-                targetPos,
-                this.asteroids
-            );
-            
-            if (result.minDistance < bestDistance) {
-                bestDistance = result.minDistance;
-                bestDirection = direction;
-            }
+    /**
+     * Get current optimal thrust direction using homing calculator
+     */
+    protected calculateOptimalThrustDirection(): Vector2D | null {
+        if (!this.targetShip || !this.physics) {
+            return null;
         }
         
-        // Refinement
-        if (bestDistance < baselineResult.minDistance * 0.9) {
-            const baseAngle = Math.atan2(bestDirection.y, bestDirection.x);
-            const refinementArc = Math.PI / 6;
-            const refinementSamples = 8;
-            
-            for (let i = 0; i < refinementSamples; i++) {
-                const angleOffset = (i / (refinementSamples - 1) - 0.5) * refinementArc;
-                const angle = baseAngle + angleOffset;
-                const direction = new Vector2D(Math.cos(angle), Math.sin(angle));
-                
-                const result = this.physics.evaluateTrajectory(
-                    this.position,
-                    this.velocity,
-                    direction,
-                    this.thrustForce,
-                    remainingThrustTime,
-                    targetPos,
-                    this.asteroids
-                );
-                
-                if (result.minDistance < bestDistance) {
-                    bestDistance = result.minDistance;
-                    bestDirection = direction;
-                }
-            }
+        const timing = this.createTiming();
+        if (!timing.isWithinThrustWindow()) {
+            return null;
         }
         
-        this.debugBestDirection = bestDirection;
+        // Check if we need to recalculate
+        if (this.timeAlive - this.lastHomingCalculation > this.homingCalculationInterval) {
+            const context: HomingContext = {
+                currentPosition: this.position,
+                currentVelocity: this.velocity,
+                target: this.targetShip,
+                physics: this.physics,
+                asteroids: this.asteroids,
+                timing
+            };
+            
+            this.currentHomingResult = this.homingCalculator.calculateOptimalThrust(context);
+            this.lastHomingCalculation = this.timeAlive;
+        }
         
-        return bestDistance < baselineResult.minDistance * 0.95 ? bestDirection : null;
+        return this.currentHomingResult?.thrustDirection || null;
     }
-
+    
+    /**
+     * Get debug information for visualization
+     */
+    getDebugInfo() {
+        return this.currentHomingResult?.debugInfo || {
+            sampledDirections: [],
+            bestDirection: null,
+            plannedPhases: [],
+            homingActive: false,
+            phaseCount: 0,
+            evaluationCount: 0
+        };
+    }
+    
     update(deltaTime: number): void {
         super.update(deltaTime);
         
         this.timeAlive += deltaTime;
         
-        // Reset debug info
-        this.debugThrustDirection = null;
-        this.debugTargetDirection = null;
-        this.debugHomingActive = false;
-        
-        if (this.timeAlive < this.thrustTime && !this.isDestroyed) {
-            // Check if we need to recalculate optimal thrust direction
-            if (this.timeAlive - this.lastHomingCalculation > this.homingCalculationInterval) {
-                this.optimalThrustDirection = this.calculateOptimalThrustDirection();
-                this.lastHomingCalculation = this.timeAlive;
-            }
+        const timing = this.createTiming();
+        if (timing.isWithinThrustWindow() && !this.isDestroyed) {
+            const thrustDirection = this.calculateOptimalThrustDirection();
             
-            // Apply thrust if we have a direction
-            if (this.optimalThrustDirection) {
-                this.debugHomingActive = true;
-                this.debugThrustDirection = this.optimalThrustDirection;
-                
-                const thrust = this.optimalThrustDirection.multiply(this.thrustForce * deltaTime / 1000);
+            if (thrustDirection) {
+                const thrust = thrustDirection.multiply(this.thrustForce * deltaTime / 1000);
                 this.velocity = this.velocity.add(thrust);
             }
         }
@@ -363,7 +202,8 @@ export class Missile extends Projectile {
     }
     
     drawDebugInfo(ctx: CanvasRenderingContext2D): void {
-        if (!this.debugHomingActive) return;
+        const debugInfo = this.getDebugInfo();
+        if (!debugInfo.homingActive) return;
         
         ctx.save();
         
@@ -379,8 +219,8 @@ export class Missile extends Projectile {
             ctx.setLineDash([]);
         }
         
-        // Sampled directions (small gray lines)
-        for (const dir of this.debugSampledDirections) {
+        // Sampled directions (small gray lines) - only for single phase
+        for (const dir of debugInfo.sampledDirections) {
             const sampleEnd = this.position.add(dir.multiply(20));
             ctx.strokeStyle = 'rgba(128, 128, 128, 0.3)';
             ctx.lineWidth = 1;
@@ -399,26 +239,33 @@ export class Missile extends Projectile {
         ctx.lineTo(velEnd.x, velEnd.y);
         ctx.stroke();
         
-        // Best calculated direction (blue)
-        if (this.debugBestDirection) {
-            const bestEnd = this.position.add(this.debugBestDirection.multiply(30));
-            ctx.strokeStyle = 'rgba(0, 128, 255, 0.8)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(this.position.x, this.position.y);
-            ctx.lineTo(bestEnd.x, bestEnd.y);
-            ctx.stroke();
-        }
-        
-        // Actual thrust direction (yellow)
-        if (this.debugThrustDirection) {
-            const thrustEnd = this.position.add(this.debugThrustDirection.multiply(35));
+        // Current thrust direction (yellow)
+        if (debugInfo.bestDirection) {
+            const thrustEnd = this.position.add(debugInfo.bestDirection.multiply(35));
             ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(this.position.x, this.position.y);
             ctx.lineTo(thrustEnd.x, thrustEnd.y);
             ctx.stroke();
+        }
+        
+        // Phase indicators for multi-phase planning
+        if (debugInfo.phaseCount > 1 && debugInfo.plannedPhases.length > 0) {
+            const phaseColors = ['rgba(255, 100, 100, 0.6)', 'rgba(100, 255, 100, 0.6)', 'rgba(100, 100, 255, 0.6)'];
+            
+            for (let i = 0; i < Math.min(debugInfo.plannedPhases.length, phaseColors.length); i++) {
+                const phase = debugInfo.plannedPhases[i];
+                if (phase.direction) {
+                    const phaseEnd = this.position.add(phase.direction.multiply(25 + i * 5));
+                    ctx.strokeStyle = phaseColors[i];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(this.position.x, this.position.y);
+                    ctx.lineTo(phaseEnd.x, phaseEnd.y);
+                    ctx.stroke();
+                }
+            }
         }
         
         ctx.restore();
@@ -434,142 +281,13 @@ export class DelayedMissile extends Missile {
         this.radius = 4; // Reduced from 5
     }
     
-    calculateOptimalThrustDirection(): Vector2D | null {
-        // Only calculate thrust after delay period
-        if (this.timeAlive <= this.delayTime) {
-            return null;
-        }
-        
-        if (!this.targetShip || this.targetShip.isDestroyed || !this.physics) {
-            return this.velocity.normalize(); // Default to current direction
-        }
-        
-        const targetPos = this.targetShip.position;
-        const adjustedTimeAlive = this.timeAlive - this.delayTime;
-        const remainingThrustTime = Math.max(0, this.thrustTime - adjustedTimeAlive);
-        
-        // If we're out of thrust time, return null
-        if (remainingThrustTime <= 0) {
-            return null;
-        }
-        
-        // Clear debug info
-        this.debugSampledDirections = [];
-        this.debugBestDirection = null;
-        
-        // First, evaluate no thrust (baseline)
-        const baselineResult = this.physics.evaluateTrajectory(
-            this.position,
-            this.velocity,
-            null,
-            0,
-            0,
-            targetPos,
-            this.asteroids
-        );
-        
-        let bestDirection = this.velocity.normalize();
-        let bestDistance = baselineResult.minDistance;
-        
-        // Sample directions in a limited arc around current velocity
-        const currentAngle = Math.atan2(this.velocity.y, this.velocity.x);
-        const maxTurnAngle = Math.PI / 3; // Max 60 degrees turn from current direction
-        const numSamples = 12;
-        for (let i = 0; i < numSamples; i++) {
-            const angleOffset = (i / (numSamples - 1) - 0.5) * 2 * maxTurnAngle;
-            const angle = currentAngle + angleOffset;
-            const direction = new Vector2D(Math.cos(angle), Math.sin(angle));
-            
-            // Store for debug visualization
-            this.debugSampledDirections.push(direction);
-            
-            const result = this.physics.evaluateTrajectory(
-                this.position,
-                this.velocity,
-                direction,
-                this.thrustForce,
-                remainingThrustTime,
-                targetPos,
-                this.asteroids
-            );
-            
-            if (result.minDistance < bestDistance) {
-                bestDistance = result.minDistance;
-                bestDirection = direction;
-            }
-        }
-        
-        // Refine search around best direction
-        if (bestDistance < baselineResult.minDistance * 0.9) { // Only refine if we found improvement
-            const baseAngle = Math.atan2(bestDirection.y, bestDirection.x);
-            const refinementArc = Math.PI / 6; // ±30 degrees (more limited)
-            const refinementSamples = 8;
-            
-            for (let i = 0; i < refinementSamples; i++) {
-                const angleOffset = (i / (refinementSamples - 1) - 0.5) * refinementArc;
-                const angle = baseAngle + angleOffset;
-                const direction = new Vector2D(Math.cos(angle), Math.sin(angle));
-                
-                const result = this.physics.evaluateTrajectory(
-                    this.position,
-                    this.velocity,
-                    direction,
-                    this.thrustForce,
-                    remainingThrustTime,
-                    targetPos,
-                    this.asteroids
-                );
-                
-                if (result.minDistance < bestDistance) {
-                    bestDistance = result.minDistance;
-                    bestDirection = direction;
-                }
-            }
-        }
-        
-        this.debugBestDirection = bestDirection;
-        
-        // If no improvement, return null (don't thrust)
-        return bestDistance < baselineResult.minDistance * 0.95 ? bestDirection : null;
+    /**
+     * Create timing context for delayed missile
+     */
+    protected createTiming(): MissileTiming {
+        return new DelayedMissileTiming(this.thrustTime, this.timeAlive, this.thrustForce, this.delayTime);
     }
-
-    update(deltaTime: number): void {
-        // Update position and trail like normal projectile
-        if (!this.isDestroyed) {
-            this.trail.push(this.position.clone());
-            if (this.trail.length > this.maxTrailLength) {
-                this.trail.shift();
-            }
-        }
-        
-        // Call Entity update, not Missile update to avoid immediate thrust
-        Entity.prototype.update.call(this, deltaTime);
-        
-        this.timeAlive += deltaTime;
-        
-        // Reset debug info
-        this.debugThrustDirection = null;
-        this.debugTargetDirection = null;
-        this.debugHomingActive = false;
-        
-        // Only apply thrust and homing after delay
-        if (this.timeAlive > this.delayTime && this.timeAlive < this.delayTime + this.thrustTime && !this.isDestroyed) {
-            // Check if we need to recalculate optimal thrust direction
-            if (this.timeAlive - this.lastHomingCalculation > this.homingCalculationInterval) {
-                this.optimalThrustDirection = this.calculateOptimalThrustDirection();
-                this.lastHomingCalculation = this.timeAlive;
-            }
-            
-            // Apply thrust if we have a direction
-            if (this.optimalThrustDirection) {
-                this.debugHomingActive = true;
-                this.debugThrustDirection = this.optimalThrustDirection;
-                
-                const thrust = this.optimalThrustDirection.multiply(this.thrustForce * deltaTime / 1000);
-                this.velocity = this.velocity.add(thrust);
-            }
-        }
-    }
+    
     
     draw(ctx: CanvasRenderingContext2D): void {
         if (this.isDestroyed) return;
