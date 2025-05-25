@@ -139,7 +139,7 @@ export class Physics {
         asteroids: Asteroid[], 
         timeStep: number = 20, 
         maxSteps: number = 500,
-        weaponType: 'bullet' | 'missile' | 'delayed' = 'bullet',
+        weaponType: 'bullet' | 'missile' | 'delayed' | 'burst' = 'bullet',
         targetShip?: Ship
     ): Vector2D[] {
         const trajectory: Vector2D[] = [];
@@ -174,8 +174,11 @@ export class Physics {
             const delayTime = 2000; // 2 seconds delay for delayed missiles
             const isDelayedMissileActive = weaponType === 'delayed' && timeAlive > delayTime && timeAlive < delayTime + missileThrustTime;
             const isRegularMissileActive = weaponType === 'missile' && timeAlive < missileThrustTime;
+            const isBurstMissileActive = weaponType === 'burst' && 
+                ((timeAlive >= 0 && timeAlive < 1000) || // Phase 1: 0-1 second
+                 (timeAlive >= 3000 && timeAlive < 4000)); // Phase 2: 3-4 seconds
             
-            if (isRegularMissileActive || isDelayedMissileActive) {
+            if (isRegularMissileActive || isDelayedMissileActive || isBurstMissileActive) {
                 let thrustDirection = vel.normalize();
                 
                 // Apply homing if we have a target

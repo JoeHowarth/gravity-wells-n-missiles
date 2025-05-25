@@ -9,7 +9,8 @@ import {
     HomingContext, 
     HomingResult,
     StandardMissileTiming, 
-    DelayedMissileTiming, 
+    DelayedMissileTiming,
+    BurstMissileTiming,
     MissileTiming 
 } from './HomingSystem';
 import { MultiPhaseHomingCalculator } from './MultiPhaseHomingCalculator';
@@ -264,6 +265,108 @@ export class Missile extends Projectile {
     }
 }
 
+export class BurstMissile extends Missile {
+    // Total thrust time is split into two 1-second phases
+    thrustTime: number = 2000; // Total thrust time (used for ammo/UI purposes)
+    
+    constructor(position: Vector2D, velocity: Vector2D, owner: number) {
+        super(position, velocity, owner);
+        this.radius = 3.5; // Slightly smaller than regular missile
+        this.maxTrailLength = 35; // Longer trail for visual effect
+    }
+    
+    /**
+     * Create timing context for burst missile
+     */
+    protected createTiming(): MissileTiming {
+        return new BurstMissileTiming(this.thrustTime, this.timeAlive, this.thrustForce);
+    }
+    
+    draw(ctx: CanvasRenderingContext2D): void {
+        if (this.isDestroyed) return;
+
+        this.drawTrail(ctx);
+
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.rotate(this.velocity.angle());
+
+        // Unique color scheme for burst missile - purple/orange
+        ctx.fillStyle = this.owner === 1 ? '#9B59B6' : '#E67E22';
+        ctx.beginPath();
+        ctx.moveTo(this.radius, 0);
+        ctx.lineTo(-this.radius, -this.radius * 0.6);
+        ctx.lineTo(-this.radius, this.radius * 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Check if we're in either thrust phase
+        const timing = this.createTiming();
+        if (timing.isWithinThrustWindow()) {
+            // Get thrust direction for visual effect
+            const thrustDir = this.calculateOptimalThrustDirection();
+            
+            if (thrustDir) {
+                ctx.restore(); // Restore to get out of missile rotation
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                
+                // Calculate thrust angle (opposite of thrust direction for exhaust)
+                const exhaustAngle = Math.atan2(-thrustDir.y, -thrustDir.x);
+                ctx.rotate(exhaustAngle);
+                
+                // Enhanced burst effect - more intense colors
+                const gradient = ctx.createLinearGradient(0, 0, 35, 0);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                gradient.addColorStop(0.2, 'rgba(255, 200, 100, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.6)');
+                gradient.addColorStop(0.8, 'rgba(200, 0, 100, 0.3)');
+                gradient.addColorStop(1, 'rgba(150, 0, 150, 0)');
+                
+                // More intense flicker for burst effect
+                const flicker = Math.sin(this.timeAlive * 0.03) * 0.3 + 1.1;
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius * 0.6);
+                ctx.lineTo(25 * flicker, -this.radius * 1);
+                ctx.lineTo(30 * flicker, 0);
+                ctx.lineTo(25 * flicker, this.radius * 1);
+                ctx.lineTo(0, this.radius * 0.6);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Bright white core for burst effect
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius * 0.4);
+                ctx.lineTo(12 * flicker, -this.radius * 0.5);
+                ctx.lineTo(15 * flicker, 0);
+                ctx.lineTo(12 * flicker, this.radius * 0.5);
+                ctx.lineTo(0, this.radius * 0.4);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                ctx.rotate(this.velocity.angle());
+            } else {
+                // Fallback to simple thrust if no direction available
+                ctx.fillStyle = '#FF00FF';
+                ctx.beginPath();
+                ctx.moveTo(-this.radius, -this.radius * 0.3);
+                ctx.lineTo(-this.radius * 2.5, 0);
+                ctx.lineTo(-this.radius, this.radius * 0.3);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        ctx.restore();
+    }
+}
+
 export class DelayedMissile extends Missile {
     delayTime: number = 2000;
     
@@ -360,6 +463,7 @@ export class DelayedMissile extends Missile {
             }
         }
 
+        ctx.restore();
         ctx.restore();
     }
 }

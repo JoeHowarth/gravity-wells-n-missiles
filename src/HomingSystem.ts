@@ -59,6 +59,38 @@ export class DelayedMissileTiming implements MissileTiming {
 }
 
 /**
+ * Burst missile timing - two separate thrust phases
+ */
+export class BurstMissileTiming implements MissileTiming {
+    private readonly phase1Start = 0;
+    private readonly phase1End = 1000; // 1 second
+    private readonly phase2Start = 3000; // 3 seconds
+    private readonly phase2End = 4000; // 4 seconds (1 second duration)
+    
+    constructor(
+        public readonly totalThrustTime: number, // Total combined thrust time (2 seconds)
+        public readonly timeAlive: number,
+        public readonly thrustForce: number
+    ) {}
+    
+    getRemainingThrustTime(): number {
+        if (this.timeAlive < this.phase1End) {
+            // In phase 1
+            return (this.phase1End - this.timeAlive) + 1000; // Phase 1 remaining + phase 2 full
+        } else if (this.timeAlive >= this.phase2Start && this.timeAlive < this.phase2End) {
+            // In phase 2
+            return this.phase2End - this.timeAlive;
+        }
+        return 0; // No thrust between phases or after phase 2
+    }
+    
+    isWithinThrustWindow(): boolean {
+        return (this.timeAlive >= this.phase1Start && this.timeAlive < this.phase1End) ||
+               (this.timeAlive >= this.phase2Start && this.timeAlive < this.phase2End);
+    }
+}
+
+/**
  * Context for homing calculations
  */
 export interface HomingContext {

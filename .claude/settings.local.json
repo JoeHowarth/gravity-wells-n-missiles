@@ -18,7 +18,8 @@
       "Bash(rm:*)",
       "WebFetch(domain:pixabay.com)",
       "Bash(ls:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   }

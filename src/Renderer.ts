@@ -94,6 +94,8 @@ export class Renderer {
         let weaponName = weapon.toUpperCase();
         if (weapon === 'delayed') {
             weaponName = 'DELAYED MISSILE';
+        } else if (weapon === 'burst') {
+            weaponName = 'BURST MISSILE';
         }
         
         // Draw background

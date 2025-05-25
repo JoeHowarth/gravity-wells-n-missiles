@@ -1,6 +1,6 @@
 import { Ship } from './Ship';
 import { Asteroid } from './Asteroid';
-import { Projectile, Bullet, Missile, DelayedMissile } from './Projectile';
+import { Projectile, Bullet, Missile, DelayedMissile, BurstMissile } from './Projectile';
 import { Physics } from './Physics';
 import { Renderer } from './Renderer';
 import { Vector2D } from './Vector2D';
@@ -142,6 +142,11 @@ export class Game {
                         ship.setWeapon('delayed');
                     }
                     break;
+                case '4':
+                    if (ship && !ship.isDestroyed) {
+                        ship.setWeapon('burst');
+                    }
+                    break;
             }
         });
     }
@@ -188,7 +193,7 @@ export class Game {
             (projectile as Missile).setPhysicsContext(this.physics, this.asteroids);
             (projectile as Missile).setAudioManager(this.audioManager);
             this.audioManager.playSound('missile');
-        } else {
+        } else if (ship.currentWeapon === 'delayed') {
             projectile = new DelayedMissile(startPos, velocity, player);
             this.audioManager.playSound('missile');
             // Set the enemy ship as target and physics context
@@ -198,6 +203,16 @@ export class Game {
             }
             (projectile as DelayedMissile).setPhysicsContext(this.physics, this.asteroids);
             (projectile as DelayedMissile).setAudioManager(this.audioManager);
+        } else {
+            projectile = new BurstMissile(startPos, velocity, player);
+            this.audioManager.playSound('missile');
+            // Set the enemy ship as target and physics context
+            const targetShip = this.ships[player === 1 ? 1 : 0];
+            if (targetShip && !targetShip.isDestroyed) {
+                (projectile as BurstMissile).setTarget(targetShip);
+            }
+            (projectile as BurstMissile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as BurstMissile).setAudioManager(this.audioManager);
         }
         
         this.projectiles.push(projectile);
@@ -211,9 +226,11 @@ export class Game {
         document.getElementById('p1-bullets')!.textContent = this.ships[0].bullets.toString();
         document.getElementById('p1-missiles')!.textContent = this.ships[0].missiles.toString();
         document.getElementById('p1-delayed')!.textContent = this.ships[0].delayedMissiles.toString();
+        document.getElementById('p1-burst')!.textContent = this.ships[0].burstMissiles.toString();
         document.getElementById('p2-bullets')!.textContent = this.ships[1].bullets.toString();
         document.getElementById('p2-missiles')!.textContent = this.ships[1].missiles.toString();
         document.getElementById('p2-delayed')!.textContent = this.ships[1].delayedMissiles.toString();
+        document.getElementById('p2-burst')!.textContent = this.ships[1].burstMissiles.toString();
     }
     
     reset(): void {

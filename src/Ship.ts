@@ -6,11 +6,12 @@ export class Ship extends Entity {
     bullets: number = 10;
     missiles: number = 5;
     delayedMissiles: number = 3;
+    burstMissiles: number = 2;
     color: string;
     aimAngle: number = 0;
     aimPower: number = 0;
     maxPower: number = 500;
-    currentWeapon: 'bullet' | 'missile' | 'delayed' = 'bullet';
+    currentWeapon: 'bullet' | 'missile' | 'delayed' | 'burst' = 'bullet';
 
     constructor(position: Vector2D, player: number) {
         super(position, new Vector2D(0, 0), 15, 100);
@@ -28,8 +29,10 @@ export class Ship extends Entity {
             return this.bullets > 0;
         } else if (this.currentWeapon === 'missile') {
             return this.missiles > 0;
-        } else {
+        } else if (this.currentWeapon === 'delayed') {
             return this.delayedMissiles > 0;
+        } else {
+            return this.burstMissiles > 0;
         }
     }
 
@@ -38,12 +41,14 @@ export class Ship extends Entity {
             this.bullets--;
         } else if (this.currentWeapon === 'missile') {
             this.missiles--;
-        } else {
+        } else if (this.currentWeapon === 'delayed') {
             this.delayedMissiles--;
+        } else {
+            this.burstMissiles--;
         }
     }
 
-    setWeapon(weapon: 'bullet' | 'missile' | 'delayed'): void {
+    setWeapon(weapon: 'bullet' | 'missile' | 'delayed' | 'burst'): void {
         this.currentWeapon = weapon;
     }
 
