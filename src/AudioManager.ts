@@ -7,32 +7,58 @@ export class AudioManager {
     private volume: number = 0.3;
     private sfxVolume: number = 0.5;
     
-    private soundPaths: Record<SoundEffectType, string> = {
-        fire: '/sounds/fire.mp3',
-        missile: '/sounds/missile.mp3',
-        explosion: '/sounds/explosion.mp3',
-        collision: '/sounds/collision.mp3',
-        thrust: '/sounds/thrust.mp3',
-        powerup: '/sounds/powerup.mp3',
-        powerdown: '/sounds/powerdown.mp3'
-    };
+    // Get the base URL for assets (handles both dev and production)
+    private getAssetUrl(path: string): string {
+        // Check if we're on GitHub Pages by looking at the pathname
+        const isGitHubPages = window.location.pathname.includes('/gravity-wells-n-missiles');
+        const base = isGitHubPages ? '/gravity-wells-n-missiles/' : '/';
+        return `${base}${path}`.replace(/\/+/g, '/');
+    }
+    
+    private get soundPaths(): Record<SoundEffectType, string> {
+        return {
+            fire: this.getAssetUrl('sounds/fire.mp3'),
+            missile: this.getAssetUrl('sounds/missile.mp3'),
+            explosion: this.getAssetUrl('sounds/explosion.mp3'),
+            collision: this.getAssetUrl('sounds/collision.mp3'),
+            thrust: this.getAssetUrl('sounds/thrust.mp3'),
+            powerup: this.getAssetUrl('sounds/powerup.mp3'),
+            powerdown: this.getAssetUrl('sounds/powerdown.mp3')
+        };
+    }
 
     constructor() {
         this.initializeAudio();
     }
 
     private initializeAudio(): void {
-        this.backgroundMusic = new Audio('/music/background.mp3');
+        const musicUrl = this.getAssetUrl('music/background.mp3');
+        console.log('Loading background music from:', musicUrl);
+        
+        this.backgroundMusic = new Audio(musicUrl);
         this.backgroundMusic.loop = true;
         this.backgroundMusic.volume = this.volume;
         
+        // Add error handler for background music
+        this.backgroundMusic.addEventListener('error', (e) => {
+            console.error('Failed to load background music:', e);
+        });
+        
         // Pre-load sound effects with multiple instances for overlapping sounds
+        console.log('Loading sound effects...');
         for (const [type, path] of Object.entries(this.soundPaths) as [SoundEffectType, string][]) {
+            console.log(`Loading ${type} from:`, path);
             const sounds: HTMLAudioElement[] = [];
             // Create 3 instances of each sound for potential overlap
             for (let i = 0; i < 3; i++) {
                 const audio = new Audio(path);
                 audio.volume = this.sfxVolume;
+                
+                // Add error handler for each sound effect
+                audio.addEventListener('error', (e) => {
+                    console.error(`Failed to load ${type} sound effect:`, e);
+                });
+                
                 sounds.push(audio);
             }
             this.soundEffects.set(type, sounds);

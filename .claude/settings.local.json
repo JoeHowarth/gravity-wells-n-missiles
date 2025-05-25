@@ -16,7 +16,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(rm:*)",
-      "WebFetch(domain:pixabay.com)"
+      "WebFetch(domain:pixabay.com)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
