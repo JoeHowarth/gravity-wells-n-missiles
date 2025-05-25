@@ -399,7 +399,9 @@ export class Game {
                     20,
                     500,
                     ship.currentWeapon,
-                    targetShip
+                    targetShip,
+                    this.canvas.width,
+                    this.canvas.height
                 );
                 console.log('Trajectory:', trajectory);
                 this.renderer.drawTrajectory(trajectory);

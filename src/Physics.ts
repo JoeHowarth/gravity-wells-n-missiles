@@ -140,7 +140,9 @@ export class Physics {
         timeStep: number = 20, 
         maxSteps: number = 500,
         weaponType: 'bullet' | 'missile' | 'delayed' | 'burst' = 'bullet',
-        targetShip?: Ship
+        targetShip?: Ship,
+        canvasWidth: number = 1200,
+        canvasHeight: number = 800
     ): Vector2D[] {
         const trajectory: Vector2D[] = [];
         let pos = startPos.clone();
@@ -199,7 +201,7 @@ export class Physics {
             timeAlive += timeStep;
 
             // Check if out of bounds
-            if (pos.x < -50 || pos.x > 1250 || pos.y < -50 || pos.y > 850) {
+            if (pos.x < -50 || pos.x > canvasWidth + 50 || pos.y < -50 || pos.y > canvasHeight + 50) {
                 trajectory.push(pos.clone());
                 break;
             }
