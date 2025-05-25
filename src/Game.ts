@@ -163,7 +163,6 @@ export class Game {
         const ship = this.ships[player - 1];
         if (!ship || ship.isDestroyed || !ship.canFire()) return;
         
-        console.log(`Ship ${player} actual position:`, ship.position);
         
         const speed = Math.max(this.currentPower, 50);
         const velocity = Vector2D.fromAngle(ship.aimAngle, speed);
@@ -174,14 +173,6 @@ export class Game {
             ship.position.y + spawnOffset.y
         );
         
-        console.log('Spawn calculation:', {
-            shipPos: { x: ship.position.x, y: ship.position.y },
-            aimAngle: ship.aimAngle,
-            spawnDistance: spawnDistance,
-            spawnOffset: { x: spawnOffset.x, y: spawnOffset.y },
-            calculation: `${ship.position.x} + ${spawnOffset.x} = ${startPos.x}`,
-            resultPos: { x: startPos.x, y: startPos.y }
-        });
         
         let projectile: Projectile;
         if (ship.currentWeapon === 'bullet') {
@@ -214,15 +205,6 @@ export class Game {
         ship.consumeAmmo();
         this.updateAmmoDisplay();
         
-        console.log(`Fired ${ship.currentWeapon} from player ${player}:`, {
-            shipPosition: ship.position,
-            projectilePosition: projectile.position,
-            velocity: projectile.velocity,
-            speed: speed,
-            aimAngle: ship.aimAngle,
-            totalEntities: this.entities.length,
-            totalProjectiles: this.projectiles.length
-        });
     }
     
     private updateAmmoDisplay(): void {
@@ -367,12 +349,6 @@ export class Game {
             }
         }
         
-        // Draw missile debug legend
-        this.renderer.drawMissileDebugLegend();
-        
-        if (projectileCount > 0) {
-            console.log(`Rendering ${projectileCount} projectiles`);
-        }
         
         if (this.isAiming) {
             const ship = this.ships[this.aimingPlayer - 1];

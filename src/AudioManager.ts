@@ -33,8 +33,6 @@ export class AudioManager {
 
     private initializeAudio(): void {
         const musicUrl = this.getAssetUrl('music/background.mp3');
-        console.log('Loading background music from:', musicUrl);
-        
         this.backgroundMusic = new Audio(musicUrl);
         this.backgroundMusic.loop = true;
         this.backgroundMusic.volume = this.volume;
@@ -45,9 +43,7 @@ export class AudioManager {
         });
         
         // Pre-load sound effects with multiple instances for overlapping sounds
-        console.log('Loading sound effects...');
         for (const [type, path] of Object.entries(this.soundPaths) as [SoundEffectType, string][]) {
-            console.log(`Loading ${type} from:`, path);
             const sounds: HTMLAudioElement[] = [];
             // Create 3 instances of each sound for potential overlap
             for (let i = 0; i < 3; i++) {

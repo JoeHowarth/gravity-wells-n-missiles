@@ -40,7 +40,6 @@ export class Physics {
                 const entityB = entities[j];
 
                 if (entityA.checkCollision(entityB)) {
-                    console.log(`Collision detected between ${entityA.constructor.name} and ${entityB.constructor.name}`);
                     this.resolveCollision(entityA, entityB);
                 }
             }
@@ -56,11 +55,9 @@ export class Physics {
             
             if (other instanceof Ship && (projectile as Projectile).owner === other.player) {
                 // Don't destroy projectiles that hit their own ship
-                console.log(`Projectile from player ${(projectile as Projectile).owner} hit own ship - ignoring`);
                 return;
             }
             
-            console.log(`Collision: ${entityA.constructor.name} vs ${entityB.constructor.name}`);
             
             // Play appropriate sound effect
             if (this.audioManager) {
@@ -114,7 +111,6 @@ export class Physics {
         if (entity instanceof Projectile) {
             if (entity.position.x < -50 || entity.position.x > width + 50 ||
                 entity.position.y < -50 || entity.position.y > height + 50) {
-                console.log(`Projectile out of bounds at:`, entity.position, `Bounds: 0-${width}, 0-${height}`);
                 entity.destroy();
             }
         } else if (entity instanceof Asteroid) {
