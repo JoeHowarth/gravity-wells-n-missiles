@@ -299,15 +299,65 @@ export class DelayedMissile extends Missile {
         ctx.closePath();
         ctx.fill();
 
-        // Show thrust flame after delay
+        // Show enhanced thrust flame after delay
         if (this.timeAlive > this.delayTime && this.timeAlive < this.delayTime + this.thrustTime) {
-            ctx.fillStyle = '#FFA500';
-            ctx.beginPath();
-            ctx.moveTo(-this.radius, -this.radius * 0.3);
-            ctx.lineTo(-this.radius * 2, 0);
-            ctx.lineTo(-this.radius, this.radius * 0.3);
-            ctx.closePath();
-            ctx.fill();
+            // Get thrust direction for visual effect
+            const thrustDir = this.calculateOptimalThrustDirection();
+            
+            if (thrustDir) {
+                ctx.restore(); // Restore to get out of missile rotation
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                
+                // Calculate thrust angle (opposite of thrust direction for exhaust)
+                const exhaustAngle = Math.atan2(-thrustDir.y, -thrustDir.x);
+                ctx.rotate(exhaustAngle);
+                
+                // Draw exhaust flame with gradient
+                const gradient = ctx.createLinearGradient(0, 0, 30, 0);
+                gradient.addColorStop(0, 'rgba(255, 255, 100, 0.8)');
+                gradient.addColorStop(0.3, 'rgba(255, 165, 0, 0.6)');
+                gradient.addColorStop(0.7, 'rgba(255, 50, 0, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                
+                // Animated flame effect
+                const flicker = Math.sin((this.timeAlive - this.delayTime) * 0.02) * 0.2 + 1;
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius * 0.5);
+                ctx.lineTo(20 * flicker, -this.radius * 0.8);
+                ctx.lineTo(25 * flicker, 0);
+                ctx.lineTo(20 * flicker, this.radius * 0.8);
+                ctx.lineTo(0, this.radius * 0.5);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Add inner bright core
+                ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius * 0.3);
+                ctx.lineTo(10 * flicker, -this.radius * 0.4);
+                ctx.lineTo(12 * flicker, 0);
+                ctx.lineTo(10 * flicker, this.radius * 0.4);
+                ctx.lineTo(0, this.radius * 0.3);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                ctx.rotate(this.velocity.angle());
+            } else {
+                // Fallback to simple thrust if no direction available
+                ctx.fillStyle = '#FFA500';
+                ctx.beginPath();
+                ctx.moveTo(-this.radius, -this.radius * 0.3);
+                ctx.lineTo(-this.radius * 2, 0);
+                ctx.lineTo(-this.radius, this.radius * 0.3);
+                ctx.closePath();
+                ctx.fill();
+            }
         }
 
         ctx.restore();
