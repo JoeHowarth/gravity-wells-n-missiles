@@ -66,21 +66,19 @@ export class Game {
                 e.clientX - rect.left,
                 e.clientY - rect.top
             );
-            
-            if (!this.gameOver) {
-                this.updateShipAim();
-            }
         });
         
         this.canvas.addEventListener('mousedown', (e) => {
             if (this.gameOver) return;
             
-            const player = this.mousePos.x < this.canvas.width / 2 ? 1 : 2;
+            const player = this.getClosestShipToMouse();
             const ship = this.ships[player - 1];
             
             if (ship && !ship.isDestroyed && ship.canFire()) {
                 this.isAiming = true;
                 this.aimingPlayer = player;
+                // Immediately update aim to ensure trajectory can be drawn
+                this.updateShipAim();
             }
         });
         
@@ -115,7 +113,7 @@ export class Game {
         window.addEventListener('keydown', (e) => {
             if (this.gameOver) return;
             
-            const player = this.mousePos.x < this.canvas.width / 2 ? 1 : 2;
+            const player = this.getClosestShipToMouse();
             const ship = this.ships[player - 1];
             
             switch (e.key.toLowerCase()) {
@@ -151,8 +149,26 @@ export class Game {
         });
     }
     
+    private getClosestShipToMouse(): number {
+        let closestPlayer = 1;
+        let minDistance = Infinity;
+        
+        for (let i = 0; i < this.ships.length; i++) {
+            const ship = this.ships[i];
+            if (ship && !ship.isDestroyed) {
+                const distance = this.mousePos.distance(ship.position);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestPlayer = i + 1;
+                }
+            }
+        }
+        
+        return closestPlayer;
+    }
+    
     private updateShipAim(): void {
-        const player = this.mousePos.x < this.canvas.width / 2 ? 1 : 2;
+        const player = this.getClosestShipToMouse();
         const ship = this.ships[player - 1];
         
         if (ship && !ship.isDestroyed) {
@@ -325,6 +341,8 @@ export class Game {
         if (this.gameOver) return;
         
         if (this.isAiming) {
+            // Update which player is aiming based on current mouse position
+            this.aimingPlayer = this.getClosestShipToMouse();
             this.updateShipAim();
         }
         
@@ -373,6 +391,7 @@ export class Game {
                 this.renderer.drawPowerBar(ship.position, this.currentPower, ship.maxPower);
                 
                 const targetShip = this.ships[this.aimingPlayer === 1 ? 1 : 0];
+                console.log('Target ship:', targetShip);
                 const trajectory = this.physics.predictTrajectory(
                     ship.position.add(Vector2D.fromAngle(ship.aimAngle, ship.radius + 20)),
                     Vector2D.fromAngle(ship.aimAngle, this.currentPower),
@@ -382,6 +401,7 @@ export class Game {
                     ship.currentWeapon,
                     targetShip
                 );
+                console.log('Trajectory:', trajectory);
                 this.renderer.drawTrajectory(trajectory);
             }
         }

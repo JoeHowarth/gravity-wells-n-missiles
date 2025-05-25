@@ -91,7 +91,7 @@ export class Missile extends Projectile {
     protected currentHomingResult: HomingResult | null = null;
     
     constructor(position: Vector2D, velocity: Vector2D, owner: number) {
-        super(position, velocity, 2, 15, owner); 
+        super(position, velocity, 1, 15, owner); 
         this.maxTrailLength = 30;
     }
     

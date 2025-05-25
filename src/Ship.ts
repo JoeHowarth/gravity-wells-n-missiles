@@ -17,6 +17,8 @@ export class Ship extends Entity {
         super(position, new Vector2D(0, 0), 15, 100);
         this.player = player;
         this.color = player === 1 ? '#4CAF50' : '#2196F3';
+        // Initialize aim angle to point toward center
+        this.aimAngle = player === 1 ? 0 : Math.PI;
     }
 
     setAim(angle: number, power: number): void {
