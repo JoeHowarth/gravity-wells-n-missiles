@@ -3,8 +3,17 @@ import { Game } from './Game';
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 
-canvas.width = 1200;
-canvas.height = 800;
+// Set canvas to full window size
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+// Initial resize
+resizeCanvas();
+
+// Handle window resize
+window.addEventListener('resize', resizeCanvas);
 
 const game = new Game(canvas, ctx);
 

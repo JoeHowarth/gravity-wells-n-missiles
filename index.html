@@ -9,15 +9,14 @@
             margin: 0;
             padding: 0;
             background-color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            overflow: hidden;
             font-family: Arial, sans-serif;
         }
         #gameCanvas {
-            border: 2px solid #333;
+            display: block;
             cursor: crosshair;
+            width: 100vw;
+            height: 100vh;
         }
         #gameInfo {
             position: absolute;

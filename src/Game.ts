@@ -40,7 +40,23 @@ export class Game {
         this.setupEventListeners();
         this.setupKeyboardListeners();
         this.setupAudioControls();
+        this.setupResizeHandler();
         this.reset();
+    }
+    
+    private setupResizeHandler(): void {
+        window.addEventListener('resize', () => {
+            this.renderer = new Renderer(this.ctx, this.canvas.width, this.canvas.height);
+            // Reposition ships if they're outside the new bounds
+            if (this.ships[0]) {
+                this.ships[0].position.x = Math.min(this.ships[0].position.x, this.canvas.width - 50);
+                this.ships[0].position.y = Math.min(this.ships[0].position.y, this.canvas.height - 50);
+            }
+            if (this.ships[1]) {
+                this.ships[1].position.x = Math.min(this.ships[1].position.x, this.canvas.width - 50);
+                this.ships[1].position.y = Math.min(this.ships[1].position.y, this.canvas.height - 50);
+            }
+        });
     }
     
     private setupEventListeners(): void {
@@ -237,7 +253,12 @@ export class Game {
         const minSpacing = 10; // Reduced spacing to fit more asteroids
         const maxAttempts = 50;
         
-        for (let i = 0; i < 40; i++) { // Increased from 30
+        // Scale asteroid count based on screen size
+        const baseAsteroidCount = 30;
+        const screenArea = (this.canvas.width * this.canvas.height) / (1200 * 800); // Ratio to original size
+        const asteroidCount = Math.floor(baseAsteroidCount * Math.sqrt(screenArea));
+        
+        for (let i = 0; i < asteroidCount; i++) {
             let placed = false;
             let attempts = 0;
             
