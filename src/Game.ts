@@ -361,8 +361,8 @@ export class Game {
         
         this.physics.handleCollisions(allEntities);
         
-        // EntityManager handles cleanup automatically in updateAll
-        this.entityManager.updateAll(0); // Just cleanup, entities already updated
+        // Clean up destroyed entities
+        this.entityManager.cleanupDestroyedEntities();
         
         // Check for game over
         const ships = this.entityManager.getShips();

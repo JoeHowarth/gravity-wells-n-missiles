@@ -68,7 +68,7 @@ export class EntityManager {
         this.cleanupDestroyedEntities();
     }
 
-    private cleanupDestroyedEntities(): void {
+    cleanupDestroyedEntities(): void {
         this.projectiles = this.projectiles.filter(p => !p.isDestroyed);
         this.asteroids = this.asteroids.filter(a => !a.isDestroyed);
         this.ships = this.ships.filter(s => !s.isDestroyed);
