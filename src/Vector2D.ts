@@ -14,6 +14,10 @@ export class Vector2D {
     }
 
     divide(scalar: number): Vector2D {
+        if (Math.abs(scalar) < 1e-10) {
+            console.warn('Vector2D.divide: Division by near-zero scalar, returning zero vector');
+            return new Vector2D(0, 0);
+        }
         return new Vector2D(this.x / scalar, this.y / scalar);
     }
 

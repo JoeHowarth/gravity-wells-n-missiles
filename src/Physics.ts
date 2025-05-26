@@ -101,7 +101,10 @@ export class Physics {
         
         const overlap = asteroidA.radius + asteroidB.radius - asteroidA.position.distance(asteroidB.position);
         if (overlap > 0) {
-            const separation = normal.multiply(overlap / 2);
+            // Limit maximum separation to prevent "jumping"
+            const maxSeparation = 5;
+            const separationAmount = Math.min(overlap / 2, maxSeparation);
+            const separation = normal.multiply(separationAmount);
             asteroidA.position = asteroidA.position.subtract(separation);
             asteroidB.position = asteroidB.position.add(separation);
         }
