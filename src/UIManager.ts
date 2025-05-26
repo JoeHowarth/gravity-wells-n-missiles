@@ -1,14 +1,24 @@
 export interface UIElements {
-    welcomeScreen: HTMLElement;
-    gameOverlay: HTMLElement;
+    // Audio controls
+    muteBtn: HTMLButtonElement;
+    volumeSlider: HTMLInputElement;
+    
+    // Ammo displays
     player1Ammo: HTMLElement;
     player2Ammo: HTMLElement;
-    powerMeter: HTMLElement;
-    currentPlayerIndicator: HTMLElement;
-    winnerDisplay: HTMLElement;
-    playAgainButton: HTMLElement;
-    volumeSlider: HTMLInputElement;
-    startButton: HTMLElement;
+    p1Bullets: HTMLElement;
+    p1Missiles: HTMLElement;
+    p1Delayed: HTMLElement;
+    p1Burst: HTMLElement;
+    p2Bullets: HTMLElement;
+    p2Missiles: HTMLElement;
+    p2Delayed: HTMLElement;
+    p2Burst: HTMLElement;
+    
+    // Victory overlay
+    victoryOverlay: HTMLElement;
+    victoryMessage: HTMLElement;
+    newGameBtn: HTMLButtonElement;
 }
 
 export class UIManager {
@@ -21,27 +31,33 @@ export class UIManager {
 
     private initializeElements(): UIElements {
         return {
-            welcomeScreen: this.getElement('welcome-screen'),
-            gameOverlay: this.getElement('game-overlay'),
+            // Audio controls
+            muteBtn: this.getElement('mute-btn') as HTMLButtonElement,
+            volumeSlider: this.getElement('volume-slider') as HTMLInputElement,
+            
+            // Ammo displays
             player1Ammo: this.getElement('player1-ammo'),
             player2Ammo: this.getElement('player2-ammo'),
-            powerMeter: this.getElement('power-meter'),
-            currentPlayerIndicator: this.getElement('current-player'),
-            winnerDisplay: this.getElement('winner-display'),
-            playAgainButton: this.getElement('play-again-button'),
-            volumeSlider: this.getElement('volume-slider') as HTMLInputElement,
-            startButton: this.getElement('start-button')
+            p1Bullets: this.getElement('p1-bullets'),
+            p1Missiles: this.getElement('p1-missiles'),
+            p1Delayed: this.getElement('p1-delayed'),
+            p1Burst: this.getElement('p1-burst'),
+            p2Bullets: this.getElement('p2-bullets'),
+            p2Missiles: this.getElement('p2-missiles'),
+            p2Delayed: this.getElement('p2-delayed'),
+            p2Burst: this.getElement('p2-burst'),
+            
+            // Victory overlay
+            victoryOverlay: this.getElement('victory-overlay'),
+            victoryMessage: this.getElement('victory-message'),
+            newGameBtn: this.getElement('new-game-btn') as HTMLButtonElement
         };
     }
 
     private getElement(id: string): HTMLElement {
         const element = document.getElementById(id);
         if (!element) {
-            console.warn(`UI element with id '${id}' not found`);
-            // Return a dummy element to prevent crashes
-            const dummy = document.createElement('div');
-            dummy.style.display = 'none';
-            return dummy;
+            throw new Error(`Required UI element with id '${id}' not found`);
         }
         return element;
     }
@@ -70,94 +86,49 @@ export class UIManager {
         }
     }
 
-    showWelcomeScreen(): void {
-        if (this.elements.welcomeScreen) {
-            this.elements.welcomeScreen.style.display = 'flex';
-        }
-        if (this.elements.gameOverlay) {
-            this.elements.gameOverlay.style.display = 'none';
-        }
+    showVictoryOverlay(message: string): void {
+        this.elements.victoryOverlay.style.display = 'block';
+        this.elements.victoryMessage.textContent = message;
     }
 
-    hideWelcomeScreen(): void {
-        if (this.elements.welcomeScreen) {
-            this.elements.welcomeScreen.style.display = 'none';
-        }
+    hideVictoryOverlay(): void {
+        this.elements.victoryOverlay.style.display = 'none';
     }
 
-    showGameOverlay(): void {
-        if (this.elements.gameOverlay) {
-            this.elements.gameOverlay.style.display = 'block';
-        }
-    }
-
-    hideGameOverlay(): void {
-        if (this.elements.gameOverlay) {
-            this.elements.gameOverlay.style.display = 'none';
-        }
-    }
-
-    updateAmmo(player: 1 | 2, bullets: number, missiles: number): void {
-        const element = player === 1 ? this.elements.player1Ammo : this.elements.player2Ammo;
-        element.textContent = `Bullets: ${bullets} | Missiles: ${missiles}`;
-    }
-
-    updatePowerMeter(power: number, maxPower: number): void {
-        const percentage = (power / maxPower) * 100;
-        this.elements.powerMeter.style.width = `${percentage}%`;
-        
-        // Change color based on power level
-        if (percentage < 33) {
-            this.elements.powerMeter.style.backgroundColor = '#4CAF50';
-        } else if (percentage < 66) {
-            this.elements.powerMeter.style.backgroundColor = '#FFC107';
+    updateAmmo(player: 1 | 2, bullets: number, missiles: number, delayed: number, burst: number): void {
+        if (player === 1) {
+            this.elements.p1Bullets.textContent = bullets.toString();
+            this.elements.p1Missiles.textContent = missiles.toString();
+            this.elements.p1Delayed.textContent = delayed.toString();
+            this.elements.p1Burst.textContent = burst.toString();
         } else {
-            this.elements.powerMeter.style.backgroundColor = '#F44336';
+            this.elements.p2Bullets.textContent = bullets.toString();
+            this.elements.p2Missiles.textContent = missiles.toString();
+            this.elements.p2Delayed.textContent = delayed.toString();
+            this.elements.p2Burst.textContent = burst.toString();
         }
-    }
-
-    updateCurrentPlayer(player: 1 | 2): void {
-        this.elements.currentPlayerIndicator.textContent = `Player ${player}'s Turn`;
-        this.elements.currentPlayerIndicator.style.color = player === 1 ? '#4CAF50' : '#2196F3';
     }
 
     showWinner(winner: 1 | 2): void {
-        // Use the actual victory-overlay and victory-message elements
-        const overlay = document.getElementById('victory-overlay');
-        const message = document.getElementById('victory-message');
-        
-        if (overlay && message) {
-            message.textContent = `Player ${winner} Wins!`;
-            message.style.color = winner === 1 ? '#4CAF50' : '#2196F3';
-            overlay.style.display = 'block';
-        }
-    }
-
-    hideWinner(): void {
-        this.elements.winnerDisplay.style.display = 'none';
-        this.elements.playAgainButton.style.display = 'none';
+        this.elements.victoryMessage.textContent = `Player ${winner} Wins!`;
+        this.elements.victoryMessage.style.color = winner === 1 ? '#4CAF50' : '#2196F3';
+        this.elements.victoryOverlay.style.display = 'block';
     }
 
     getVolumeValue(): number {
         return parseFloat(this.elements.volumeSlider.value);
     }
 
-    onStartClick(callback: () => void): void {
-        // Since there's no start button in the HTML, just call the callback immediately
-        // This allows the game to start automatically
-        setTimeout(callback, 100);
+    onNewGameClick(callback: () => void): void {
+        this.elements.newGameBtn.addEventListener('click', callback);
     }
 
-    onPlayAgainClick(callback: () => void): void {
-        // Use the actual new-game-btn that exists in the HTML
-        const newGameBtn = document.getElementById('new-game-btn');
-        if (newGameBtn) {
-            // Remove any existing listeners first
-            const newBtn = newGameBtn.cloneNode(true) as HTMLElement;
-            newGameBtn.parentNode?.replaceChild(newBtn, newGameBtn);
-            // Add our listener
-            newBtn.addEventListener('click', callback);
-        }
+    onMuteClick(callback: () => void): void {
+        this.elements.muteBtn.addEventListener('click', callback);
+    }
+
+    updateMuteButton(isMuted: boolean): void {
+        this.elements.muteBtn.textContent = isMuted ? '🔇 Unmute' : '🔊 Mute';
     }
 
     onVolumeChange(callback: (volume: number) => void): void {
@@ -166,34 +137,4 @@ export class UIManager {
         });
     }
 
-    showAimingHint(show: boolean): void {
-        if (show) {
-            // Create aiming hint if it doesn't exist
-            let hint = document.getElementById('aiming-hint');
-            if (!hint) {
-                hint = document.createElement('div');
-                hint.id = 'aiming-hint';
-                hint.style.cssText = `
-                    position: absolute;
-                    bottom: 120px;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: rgba(0, 0, 0, 0.7);
-                    color: white;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    font-size: 14px;
-                    pointer-events: none;
-                `;
-                hint.textContent = 'Click/Touch and drag to aim, release to fire';
-                document.body.appendChild(hint);
-            }
-            hint.style.display = 'block';
-        } else {
-            const hint = document.getElementById('aiming-hint');
-            if (hint) {
-                hint.style.display = 'none';
-            }
-        }
-    }
 }

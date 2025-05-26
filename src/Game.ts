@@ -65,11 +65,6 @@ export class Game {
                 this.isAiming = true;
                 this.aimingPlayer = player;
                 this.updateShipAim();
-                
-                // Show aiming hint on touch devices
-                if (this.inputManager.isTouchDevice()) {
-                    this.uiManager.showAimingHint(true);
-                }
             }
         });
 
@@ -77,7 +72,6 @@ export class Game {
             if (this.isAiming && !this.gameOver) {
                 this.fire(this.aimingPlayer);
                 this.isAiming = false;
-                this.uiManager.showAimingHint(false);
             }
         });
 
@@ -100,15 +94,14 @@ export class Game {
     }
 
     private setupUIHandlers(): void {
-        this.uiManager.onStartClick(() => {
-            this.start();
-            this.uiManager.hideWelcomeScreen();
-            this.uiManager.showGameOverlay();
-        });
-
-        this.uiManager.onPlayAgainClick(() => {
+        this.uiManager.onNewGameClick(() => {
             this.reset();
             this.start();
+        });
+
+        this.uiManager.onMuteClick(() => {
+            this.audioManager.toggleMute();
+            this.uiManager.updateMuteButton(this.audioManager.isMusicMuted());
         });
 
         this.uiManager.onVolumeChange((volume) => {
@@ -144,7 +137,6 @@ export class Game {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isAiming) {
                 this.isAiming = false;
-                this.uiManager.showAimingHint(false);
             }
         });
     }
@@ -244,14 +236,8 @@ export class Game {
     private updateAmmoDisplay(): void {
         const ships = this.entityManager.getShips();
         if (ships.length >= 2) {
-            document.getElementById('p1-bullets')!.textContent = ships[0].bullets.toString();
-            document.getElementById('p1-missiles')!.textContent = ships[0].missiles.toString();
-            document.getElementById('p1-delayed')!.textContent = ships[0].delayedMissiles.toString();
-            document.getElementById('p1-burst')!.textContent = ships[0].burstMissiles.toString();
-            document.getElementById('p2-bullets')!.textContent = ships[1].bullets.toString();
-            document.getElementById('p2-missiles')!.textContent = ships[1].missiles.toString();
-            document.getElementById('p2-delayed')!.textContent = ships[1].delayedMissiles.toString();
-            document.getElementById('p2-burst')!.textContent = ships[1].burstMissiles.toString();
+            this.uiManager.updateAmmo(1, ships[0].bullets, ships[0].missiles, ships[0].delayedMissiles, ships[0].burstMissiles);
+            this.uiManager.updateAmmo(2, ships[1].bullets, ships[1].missiles, ships[1].delayedMissiles, ships[1].burstMissiles);
         }
     }
     
@@ -261,10 +247,7 @@ export class Game {
         this.winner = 0;
         
         // Hide the victory overlay
-        const overlay = document.getElementById('victory-overlay');
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
+        this.uiManager.hideVictoryOverlay();
         
         // Start background music
         this.audioManager.startMusic();
@@ -367,16 +350,16 @@ export class Game {
         
         this.physics.handleCollisions(allEntities);
         
-        // Clean up destroyed entities
-        this.entityManager.cleanupDestroyedEntities();
-        
-        // Check for game over
+        // Check for game over BEFORE cleaning up destroyed entities
         const ships = this.entityManager.getShips();
         for (let i = 0; i < ships.length; i++) {
             if (ships[i].isDestroyed) {
                 this.endGame(i === 0 ? 2 : 1);
             }
         }
+        
+        // Clean up destroyed entities after checking
+        this.entityManager.cleanupDestroyedEntities();
     }
     
     private render(): void {
