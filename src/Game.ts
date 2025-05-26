@@ -6,6 +6,9 @@ import { Renderer } from './Renderer';
 import { Vector2D } from './Vector2D';
 import { Entity } from './Entity';
 import { AudioManager } from './AudioManager';
+import { EntityManager } from './EntityManager';
+import { InputManager } from './InputManager';
+import { UIManager } from './UIManager';
 
 export class Game {
     private canvas: HTMLCanvasElement;
@@ -13,18 +16,15 @@ export class Game {
     private renderer: Renderer;
     private physics: Physics;
     private audioManager: AudioManager;
-    
-    private ships: Ship[] = [];
-    private asteroids: Asteroid[] = [];
-    private projectiles: Projectile[] = [];
-    private entities: Entity[] = [];
+    private entityManager: EntityManager;
+    private inputManager: InputManager;
+    private uiManager: UIManager;
     
     private lastTime: number = 0;
     private isRunning: boolean = false;
     private gameOver: boolean = false;
     private winner: number = 0;
     
-    private mousePos: Vector2D = new Vector2D(0, 0);
     private isAiming: boolean = false;
     private aimingPlayer: number = 0;
     private currentPower: number = 100;
@@ -35,128 +35,129 @@ export class Game {
         this.renderer = new Renderer(ctx, canvas.width, canvas.height);
         this.physics = new Physics();
         this.audioManager = new AudioManager();
+        this.entityManager = new EntityManager();
+        this.inputManager = new InputManager(canvas);
+        this.uiManager = new UIManager();
+        
         this.physics.setAudioManager(this.audioManager);
         
-        this.setupEventListeners();
+        this.setupInputHandlers();
+        this.setupUIHandlers();
         this.setupKeyboardListeners();
-        this.setupAudioControls();
         this.setupResizeHandler();
         this.reset();
     }
     
-    private setupResizeHandler(): void {
-        window.addEventListener('resize', () => {
-            this.renderer = new Renderer(this.ctx, this.canvas.width, this.canvas.height);
-            // Reposition ships if they're outside the new bounds
-            if (this.ships[0]) {
-                this.ships[0].position.x = Math.min(this.ships[0].position.x, this.canvas.width - 50);
-                this.ships[0].position.y = Math.min(this.ships[0].position.y, this.canvas.height - 50);
-            }
-            if (this.ships[1]) {
-                this.ships[1].position.x = Math.min(this.ships[1].position.x, this.canvas.width - 50);
-                this.ships[1].position.y = Math.min(this.ships[1].position.y, this.canvas.height - 50);
+    private setupInputHandlers(): void {
+        this.inputManager.onMouseMove((position) => {
+            if (this.isAiming) {
+                this.updateShipAim();
             }
         });
-    }
-    
-    private setupEventListeners(): void {
-        this.canvas.addEventListener('mousemove', (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            this.mousePos = new Vector2D(
-                e.clientX - rect.left,
-                e.clientY - rect.top
-            );
-        });
-        
-        this.canvas.addEventListener('mousedown', (e) => {
+
+        this.inputManager.onMouseDown((position) => {
             if (this.gameOver) return;
             
-            const player = this.getClosestShipToMouse();
-            const ship = this.ships[player - 1];
+            const player = this.getClosestShipToPosition(position);
+            const ship = this.entityManager.getShips()[player - 1];
             
             if (ship && !ship.isDestroyed && ship.canFire()) {
                 this.isAiming = true;
                 this.aimingPlayer = player;
-                // Immediately update aim to ensure trajectory can be drawn
                 this.updateShipAim();
+                
+                // Show aiming hint on touch devices
+                if (this.inputManager.isTouchDevice()) {
+                    this.uiManager.showAimingHint(true);
+                }
             }
         });
-        
-        this.canvas.addEventListener('mouseup', () => {
+
+        this.inputManager.onMouseUp((position) => {
             if (this.isAiming && !this.gameOver) {
                 this.fire(this.aimingPlayer);
                 this.isAiming = false;
+                this.uiManager.showAimingHint(false);
             }
         });
+
+        // Keyboard controls for weapons
+        this.inputManager.onKey('1', () => this.setWeaponForClosestShip('bullet'));
+        this.inputManager.onKey('2', () => this.setWeaponForClosestShip('missile'));
+        this.inputManager.onKey('3', () => this.setWeaponForClosestShip('delayed'));
+        this.inputManager.onKey('4', () => this.setWeaponForClosestShip('burst'));
         
-        this.canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
+        // Power controls
+        this.inputManager.onKey('w', () => {
+            this.currentPower = Math.min(this.currentPower + 20, 500);
+            this.audioManager.playSound('powerup');
+        });
+        
+        this.inputManager.onKey('a', () => {
+            this.currentPower = Math.max(this.currentPower - 20, 0);
+            this.audioManager.playSound('powerdown');
         });
     }
-    
-    private setupAudioControls(): void {
-        const muteBtn = document.getElementById('mute-btn') as HTMLButtonElement;
-        const volumeSlider = document.getElementById('volume-slider') as HTMLInputElement;
-        
-        muteBtn.addEventListener('click', () => {
-            this.audioManager.toggleMute();
-            muteBtn.textContent = this.audioManager.isMusicMuted() ? '🔇 Unmute' : '🔊 Mute';
+
+    private setupUIHandlers(): void {
+        this.uiManager.onStartClick(() => {
+            this.start();
+            this.uiManager.hideWelcomeScreen();
+            this.uiManager.showGameOverlay();
         });
-        
-        volumeSlider.addEventListener('input', (e) => {
-            const volume = parseInt((e.target as HTMLInputElement).value) / 100;
+
+        this.uiManager.onPlayAgainClick(() => {
+            this.reset();
+            this.start();
+        });
+
+        this.uiManager.onVolumeChange((volume) => {
             this.audioManager.setVolume(volume);
+        });
+    }
+
+    private setWeaponForClosestShip(weapon: 'bullet' | 'missile' | 'delayed' | 'burst'): void {
+        if (this.gameOver) return;
+        
+        const player = this.getClosestShipToPosition(this.inputManager.getMousePosition());
+        const ship = this.entityManager.getShips()[player - 1];
+        
+        if (ship && !ship.isDestroyed) {
+            ship.setWeapon(weapon);
+        }
+    }
+
+    private setupResizeHandler(): void {
+        window.addEventListener('resize', () => {
+            this.renderer = new Renderer(this.ctx, this.canvas.width, this.canvas.height);
+            // Reposition ships if they're outside the new bounds
+            const ships = this.entityManager.getShips();
+            ships.forEach(ship => {
+                ship.position.x = Math.min(ship.position.x, this.canvas.width - 50);
+                ship.position.y = Math.min(ship.position.y, this.canvas.height - 50);
+            });
         });
     }
     
     private setupKeyboardListeners(): void {
+        // Additional keyboard shortcuts not handled by InputManager
         window.addEventListener('keydown', (e) => {
-            if (this.gameOver) return;
-            
-            const player = this.getClosestShipToMouse();
-            const ship = this.ships[player - 1];
-            
-            switch (e.key.toLowerCase()) {
-                case 'w':
-                    this.currentPower = Math.min(this.currentPower + 20, 500);
-                    this.audioManager.playSound('powerup');
-                    break;
-                case 'a':
-                    this.currentPower = Math.max(this.currentPower - 20, 0);
-                    this.audioManager.playSound('powerdown');
-                    break;
-                case '1':
-                    if (ship && !ship.isDestroyed) {
-                        ship.setWeapon('bullet');
-                    }
-                    break;
-                case '2':
-                    if (ship && !ship.isDestroyed) {
-                        ship.setWeapon('missile');
-                    }
-                    break;
-                case '3':
-                    if (ship && !ship.isDestroyed) {
-                        ship.setWeapon('delayed');
-                    }
-                    break;
-                case '4':
-                    if (ship && !ship.isDestroyed) {
-                        ship.setWeapon('burst');
-                    }
-                    break;
+            if (e.key === 'Escape' && this.isAiming) {
+                this.isAiming = false;
+                this.uiManager.showAimingHint(false);
             }
         });
     }
     
-    private getClosestShipToMouse(): number {
+    private getClosestShipToPosition(position: Vector2D): number {
         let closestPlayer = 1;
         let minDistance = Infinity;
         
-        for (let i = 0; i < this.ships.length; i++) {
-            const ship = this.ships[i];
+        const ships = this.entityManager.getShips();
+        for (let i = 0; i < ships.length; i++) {
+            const ship = ships[i];
             if (ship && !ship.isDestroyed) {
-                const distance = this.mousePos.distance(ship.position);
+                const distance = position.distance(ship.position);
                 if (distance < minDistance) {
                     minDistance = distance;
                     closestPlayer = i + 1;
@@ -168,20 +169,23 @@ export class Game {
     }
     
     private updateShipAim(): void {
-        const player = this.getClosestShipToMouse();
-        const ship = this.ships[player - 1];
+        const mousePos = this.inputManager.getMousePosition();
+        const player = this.getClosestShipToPosition(mousePos);
+        const ships = this.entityManager.getShips();
+        const ship = ships[player - 1];
         
         if (ship && !ship.isDestroyed) {
             const angle = Math.atan2(
-                this.mousePos.y - ship.position.y,
-                this.mousePos.x - ship.position.x
+                mousePos.y - ship.position.y,
+                mousePos.x - ship.position.x
             );
             ship.setAim(angle, this.currentPower);
         }
     }
     
     private fire(player: number): void {
-        const ship = this.ships[player - 1];
+        const ships = this.entityManager.getShips();
+        const ship = ships[player - 1];
         if (!ship || ship.isDestroyed || !ship.canFire()) return;
         
         
@@ -202,58 +206,57 @@ export class Game {
         } else if (ship.currentWeapon === 'missile') {
             projectile = new Missile(startPos, velocity, player);
             // Set the enemy ship as target and physics context
-            const targetShip = this.ships[player === 1 ? 1 : 0];
+            const targetShip = ships[player === 1 ? 1 : 0];
             if (targetShip && !targetShip.isDestroyed) {
                 (projectile as Missile).setTarget(targetShip);
             }
-            (projectile as Missile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as Missile).setPhysicsContext(this.physics, this.entityManager.getAsteroids());
             (projectile as Missile).setAudioManager(this.audioManager);
             this.audioManager.playSound('missile');
         } else if (ship.currentWeapon === 'delayed') {
             projectile = new DelayedMissile(startPos, velocity, player);
             this.audioManager.playSound('missile');
             // Set the enemy ship as target and physics context
-            const targetShip = this.ships[player === 1 ? 1 : 0];
+            const targetShip = ships[player === 1 ? 1 : 0];
             if (targetShip && !targetShip.isDestroyed) {
                 (projectile as DelayedMissile).setTarget(targetShip);
             }
-            (projectile as DelayedMissile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as DelayedMissile).setPhysicsContext(this.physics, this.entityManager.getAsteroids());
             (projectile as DelayedMissile).setAudioManager(this.audioManager);
         } else {
             projectile = new BurstMissile(startPos, velocity, player);
             this.audioManager.playSound('missile');
             // Set the enemy ship as target and physics context
-            const targetShip = this.ships[player === 1 ? 1 : 0];
+            const targetShip = ships[player === 1 ? 1 : 0];
             if (targetShip && !targetShip.isDestroyed) {
                 (projectile as BurstMissile).setTarget(targetShip);
             }
-            (projectile as BurstMissile).setPhysicsContext(this.physics, this.asteroids);
+            (projectile as BurstMissile).setPhysicsContext(this.physics, this.entityManager.getAsteroids());
             (projectile as BurstMissile).setAudioManager(this.audioManager);
         }
         
-        this.projectiles.push(projectile);
-        this.entities.push(projectile);
+        this.entityManager.addProjectile(projectile);
         ship.consumeAmmo();
         this.updateAmmoDisplay();
         
     }
     
     private updateAmmoDisplay(): void {
-        document.getElementById('p1-bullets')!.textContent = this.ships[0].bullets.toString();
-        document.getElementById('p1-missiles')!.textContent = this.ships[0].missiles.toString();
-        document.getElementById('p1-delayed')!.textContent = this.ships[0].delayedMissiles.toString();
-        document.getElementById('p1-burst')!.textContent = this.ships[0].burstMissiles.toString();
-        document.getElementById('p2-bullets')!.textContent = this.ships[1].bullets.toString();
-        document.getElementById('p2-missiles')!.textContent = this.ships[1].missiles.toString();
-        document.getElementById('p2-delayed')!.textContent = this.ships[1].delayedMissiles.toString();
-        document.getElementById('p2-burst')!.textContent = this.ships[1].burstMissiles.toString();
+        const ships = this.entityManager.getShips();
+        if (ships.length >= 2) {
+            document.getElementById('p1-bullets')!.textContent = ships[0].bullets.toString();
+            document.getElementById('p1-missiles')!.textContent = ships[0].missiles.toString();
+            document.getElementById('p1-delayed')!.textContent = ships[0].delayedMissiles.toString();
+            document.getElementById('p1-burst')!.textContent = ships[0].burstMissiles.toString();
+            document.getElementById('p2-bullets')!.textContent = ships[1].bullets.toString();
+            document.getElementById('p2-missiles')!.textContent = ships[1].missiles.toString();
+            document.getElementById('p2-delayed')!.textContent = ships[1].delayedMissiles.toString();
+            document.getElementById('p2-burst')!.textContent = ships[1].burstMissiles.toString();
+        }
     }
     
     reset(): void {
-        this.ships = [];
-        this.asteroids = [];
-        this.projectiles = [];
-        this.entities = [];
+        this.entityManager.reset();
         this.gameOver = false;
         this.winner = 0;
         
@@ -262,8 +265,8 @@ export class Game {
         
         const ship1 = new Ship(new Vector2D(50, this.canvas.height / 2), 1);
         const ship2 = new Ship(new Vector2D(this.canvas.width - 50, this.canvas.height / 2), 2);
-        this.ships.push(ship1, ship2);
-        this.entities.push(ship1, ship2);
+        this.entityManager.addShip(ship1);
+        this.entityManager.addShip(ship2);
         
         const minSpacing = 10; // Reduced spacing to fit more asteroids
         const maxAttempts = 50;
@@ -293,7 +296,8 @@ export class Game {
                 const position = new Vector2D(x, y);
                 
                 let valid = true;
-                for (const existing of this.asteroids) {
+                const existingAsteroids = this.entityManager.getAsteroids();
+                for (const existing of existingAsteroids) {
                     if (position.distance(existing.position) < radius + existing.radius + minSpacing) {
                         valid = false;
                         break;
@@ -302,8 +306,7 @@ export class Game {
                 
                 if (valid) {
                     const asteroid = new Asteroid(position, radius);
-                    this.asteroids.push(asteroid);
-                    this.entities.push(asteroid);
+                    this.entityManager.addAsteroid(asteroid);
                     placed = true;
                 }
                 
@@ -342,29 +345,29 @@ export class Game {
         
         if (this.isAiming) {
             // Update which player is aiming based on current mouse position
-            this.aimingPlayer = this.getClosestShipToMouse();
+            this.aimingPlayer = this.getClosestShipToPosition(this.inputManager.getMousePosition());
             this.updateShipAim();
         }
         
-        this.physics.applyGravity(this.entities, this.asteroids, deltaTime);
+        const allEntities = this.entityManager.getAllEntities();
+        const asteroids = this.entityManager.getAsteroids();
         
-        for (const entity of this.entities) {
+        this.physics.applyGravity(allEntities, asteroids, deltaTime);
+        
+        for (const entity of allEntities) {
             entity.update(deltaTime);
             this.physics.checkBounds(entity, this.canvas.width, this.canvas.height);
         }
         
-        this.physics.handleCollisions(this.entities);
+        this.physics.handleCollisions(allEntities);
         
-        const beforeProjectiles = this.projectiles.length;
-        this.projectiles = this.projectiles.filter(p => !p.isDestroyed);
-        this.entities = this.entities.filter(e => !e.isDestroyed);
+        // EntityManager handles cleanup automatically in updateAll
+        this.entityManager.updateAll(0); // Just cleanup, entities already updated
         
-        if (beforeProjectiles !== this.projectiles.length) {
-            console.log(`Projectiles removed: ${beforeProjectiles} -> ${this.projectiles.length}`);
-        }
-        
-        for (let i = 0; i < this.ships.length; i++) {
-            if (this.ships[i].isDestroyed) {
+        // Check for game over
+        const ships = this.entityManager.getShips();
+        for (let i = 0; i < ships.length; i++) {
+            if (ships[i].isDestroyed) {
                 this.endGame(i === 0 ? 2 : 1);
             }
         }
@@ -374,28 +377,27 @@ export class Game {
         this.renderer.clear();
         
         // Draw gravity field first (background layer)
-        this.renderer.drawGravityField(this.asteroids, 6000);
+        const asteroids = this.entityManager.getAsteroids();
+        this.renderer.drawGravityField(asteroids, 6000);
         
-        let projectileCount = 0;
-        for (const entity of this.entities) {
+        // Draw all entities
+        const allEntities = this.entityManager.getAllEntities();
+        for (const entity of allEntities) {
             this.renderer.drawEntity(entity);
-            if (entity instanceof Projectile) {
-                projectileCount++;
-            }
         }
         
-        
+        // Draw aiming UI
         if (this.isAiming) {
-            const ship = this.ships[this.aimingPlayer - 1];
+            const ships = this.entityManager.getShips();
+            const ship = ships[this.aimingPlayer - 1];
             if (ship && !ship.isDestroyed) {
                 this.renderer.drawPowerBar(ship.position, this.currentPower, ship.maxPower);
                 
-                const targetShip = this.ships[this.aimingPlayer === 1 ? 1 : 0];
-                console.log('Target ship:', targetShip);
+                const targetShip = ships[this.aimingPlayer === 1 ? 1 : 0];
                 const trajectory = this.physics.predictTrajectory(
                     ship.position.add(Vector2D.fromAngle(ship.aimAngle, ship.radius + 20)),
                     Vector2D.fromAngle(ship.aimAngle, this.currentPower),
-                    this.asteroids,
+                    asteroids,
                     20,
                     500,
                     ship.currentWeapon,
@@ -403,12 +405,13 @@ export class Game {
                     this.canvas.width,
                     this.canvas.height
                 );
-                console.log('Trajectory:', trajectory);
                 this.renderer.drawTrajectory(trajectory);
             }
         }
         
-        for (const ship of this.ships) {
+        // Draw weapon indicators
+        const ships = this.entityManager.getShips();
+        for (const ship of ships) {
             if (!ship.isDestroyed) {
                 this.renderer.drawWeaponIndicator(ship.position, ship.currentWeapon, ship.player);
             }
@@ -422,10 +425,6 @@ export class Game {
         // Stop music when game ends
         this.audioManager.stopMusic();
         
-        const overlay = document.getElementById('victory-overlay')!;
-        const message = document.getElementById('victory-message')!;
-        
-        message.textContent = `Player ${winner} Wins!`;
-        overlay.style.display = 'block';
+        this.uiManager.showWinner(winner as 1 | 2);
     }
 }
