@@ -37,7 +37,11 @@ export class UIManager {
     private getElement(id: string): HTMLElement {
         const element = document.getElementById(id);
         if (!element) {
-            throw new Error(`UI element with id '${id}' not found`);
+            console.warn(`UI element with id '${id}' not found`);
+            // Return a dummy element to prevent crashes
+            const dummy = document.createElement('div');
+            dummy.style.display = 'none';
+            return dummy;
         }
         return element;
     }
@@ -67,20 +71,30 @@ export class UIManager {
     }
 
     showWelcomeScreen(): void {
-        this.elements.welcomeScreen.style.display = 'flex';
-        this.elements.gameOverlay.style.display = 'none';
+        if (this.elements.welcomeScreen) {
+            this.elements.welcomeScreen.style.display = 'flex';
+        }
+        if (this.elements.gameOverlay) {
+            this.elements.gameOverlay.style.display = 'none';
+        }
     }
 
     hideWelcomeScreen(): void {
-        this.elements.welcomeScreen.style.display = 'none';
+        if (this.elements.welcomeScreen) {
+            this.elements.welcomeScreen.style.display = 'none';
+        }
     }
 
     showGameOverlay(): void {
-        this.elements.gameOverlay.style.display = 'block';
+        if (this.elements.gameOverlay) {
+            this.elements.gameOverlay.style.display = 'block';
+        }
     }
 
     hideGameOverlay(): void {
-        this.elements.gameOverlay.style.display = 'none';
+        if (this.elements.gameOverlay) {
+            this.elements.gameOverlay.style.display = 'none';
+        }
     }
 
     updateAmmo(player: 1 | 2, bullets: number, missiles: number): void {
@@ -108,10 +122,15 @@ export class UIManager {
     }
 
     showWinner(winner: 1 | 2): void {
-        this.elements.winnerDisplay.textContent = `Player ${winner} Wins!`;
-        this.elements.winnerDisplay.style.color = winner === 1 ? '#4CAF50' : '#2196F3';
-        this.elements.winnerDisplay.style.display = 'block';
-        this.elements.playAgainButton.style.display = 'block';
+        // Use the actual victory-overlay and victory-message elements
+        const overlay = document.getElementById('victory-overlay');
+        const message = document.getElementById('victory-message');
+        
+        if (overlay && message) {
+            message.textContent = `Player ${winner} Wins!`;
+            message.style.color = winner === 1 ? '#4CAF50' : '#2196F3';
+            overlay.style.display = 'block';
+        }
     }
 
     hideWinner(): void {
@@ -124,11 +143,17 @@ export class UIManager {
     }
 
     onStartClick(callback: () => void): void {
-        this.elements.startButton.addEventListener('click', callback);
+        // Since there's no start button in the HTML, just call the callback immediately
+        // This allows the game to start automatically
+        setTimeout(callback, 100);
     }
 
     onPlayAgainClick(callback: () => void): void {
-        this.elements.playAgainButton.addEventListener('click', callback);
+        // Use the actual new-game-btn that exists in the HTML
+        const newGameBtn = document.getElementById('new-game-btn');
+        if (newGameBtn) {
+            newGameBtn.addEventListener('click', callback);
+        }
     }
 
     onVolumeChange(callback: (volume: number) => void): void {
