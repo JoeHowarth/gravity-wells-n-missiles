@@ -23,10 +23,7 @@ const message = document.getElementById('victory-message') as HTMLElement;
 overlay.style.display = 'block';
 message.textContent = 'Welcome to Gravity Wells & Missiles!';
 
-document.getElementById('new-game-btn')?.addEventListener('click', () => {
-    const overlay = document.getElementById('victory-overlay') as HTMLElement;
-    overlay.style.display = 'none';
-    game.reset();
-});
+// Remove this listener as it's handled by UIManager in Game.ts
+// The UIManager's onPlayAgainClick will handle the button
 
 game.start();

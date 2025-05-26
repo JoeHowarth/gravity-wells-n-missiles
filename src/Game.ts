@@ -260,6 +260,12 @@ export class Game {
         this.gameOver = false;
         this.winner = 0;
         
+        // Hide the victory overlay
+        const overlay = document.getElementById('victory-overlay');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+        
         // Start background music
         this.audioManager.startMusic();
         

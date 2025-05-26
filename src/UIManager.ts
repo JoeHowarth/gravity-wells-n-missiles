@@ -152,7 +152,11 @@ export class UIManager {
         // Use the actual new-game-btn that exists in the HTML
         const newGameBtn = document.getElementById('new-game-btn');
         if (newGameBtn) {
-            newGameBtn.addEventListener('click', callback);
+            // Remove any existing listeners first
+            const newBtn = newGameBtn.cloneNode(true) as HTMLElement;
+            newGameBtn.parentNode?.replaceChild(newBtn, newGameBtn);
+            // Add our listener
+            newBtn.addEventListener('click', callback);
         }
     }
 
